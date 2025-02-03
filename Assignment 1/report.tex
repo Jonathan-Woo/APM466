@@ -119,7 +119,7 @@
                             \State \texttt{bond\_time\_to\_maturity} = \texttt{future\_bond.maturity - data\_collection\_date}
 
                             \State \texttt{forward\_rates\_table[future\_bond, data\_collection\_date]} =
-                            \Statex \hspace{1cm} \texttt{(bond\_spot\_rate * (bond\_time\_to\_maturity + year\_1\_bond\_time\_to\_maturity) - year\_1\_bond\_spot\_rate) / year\_1\_bond\_time\_to\_maturity}
+                            \Statex \hspace{1cm} \texttt{(((1 + bond\_spot\_rate) ** (bond\_time\_to\_maturity + year\_1\_bond\_time\_to\_maturity)) / ((1 + year\_1\_bond\_spot\_rate) ** year\_1\_bond\_time\_to\_maturity)) ** (year\_1\_bond\_time\_to\_maturity) - 1}
                             \EndFor
                             \EndFor
                         \end{algorithmic}
