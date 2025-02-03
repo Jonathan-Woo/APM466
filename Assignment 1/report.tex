@@ -1,0 +1,168 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper, total={6.6in, 9.8in}]{geometry}
+\usepackage[style=ieee]{biblatex}
+\usepackage{amsmath, tikz, amsfonts, bbm, mathrsfs, graphicx, amssymb, amsthm, hyperref, centernot, enumerate, bbm, xcolor, lmodern, mathdots, amsfonts, graphicx, algorithm, algpseudocodex, float, caption, multicol, enumitem, titling}
+
+\addbibresource{references.bib}
+
+\captionsetup[figure]{skip=0pt}
+
+\title{MAT1856/APM466 Assignment 1}
+\author{Jonathan Woo, Student \#: 1006922207}
+\date{February 3, 2025}
+
+\graphicspath{{output/}}
+
+\begin{document}
+
+\setlength{\droptitle}{-2cm}
+\maketitle
+\vspace{-3em}
+
+\section*{Fundamental Questions - 25 points}
+
+\begin{enumerate}
+    \item \hfill
+          \begin{enumerate}
+              \item To raise money in a way that doesn't increase the total amount of money supply in the economy to prevent inflation.
+              \item Stable inflation expectations and moderate growth implying reduced expectations for interest rates to change (risk) so investors demand less premium for longer term bonds vs shorter term bonds.
+              \item Quantitative easing is a strategy to reduce interest rates to stimulate the economy by using the central bank to purchase financial assets (including bonds) thereby increasing their demand and reducing the yield. Since the beginning of the COVID-19 pandemic, uncertainty in the economy led to panic selling and the surge of yields and interest rates. Using quantitative easing, the Fed reduced long-term yields thereby encouraging borrowing and spending.
+          \end{enumerate}
+    \item These are the chosen bonds based on having the same coupon dates such that linear interpolation is not required. They have maturities on either March or September which makes it convenient to compute the spot rate curve in the next section.
+          \begin{multicols}{4}
+              \begin{enumerate}[label=\roman*.]
+                  \item CAN 1.25 Mar 25
+                  \item CAN 0.50 Sept 25
+                  \item CAN 0.25 Mar 26
+                  \item CAN 1.00 Sept 26
+                  \item CAN 1.25 Mar 27
+                  \item CAN 2.75 Sept 27
+                  \item CAN 3.50 Mar 28
+                  \item CAN 3.25 Sept 28
+                  \item CAN 4.00 Mar 29
+                  \item CAN 3.50 Sept 29
+                  \item CAN 2.75 Mar 30
+              \end{enumerate}
+          \end{multicols}
+    \item Eigenvalues represent the amount of variance captured by the corresponding eigenvector. Thus, the largest eigenvalue indicates that the corresponding eigenvector corresponds to a direction where the data varies the most in terms of euclidean distance. As the eigenvalues get smaller, their respective eigenvectors capture less and less variance. Plainly, eigenvectors with large eigenvalues represent characteristic patterns in the curve with subsequent eigenvectors representing less characteristic patterns.
+\end{enumerate}
+
+\section*{Empirical Questions - 75 points}
+
+\begin{enumerate}
+    \setcounter{enumi}{3}
+    \item \textbf{In all of the following, I computed and used the dirty price as the bond tracker website provided clean prices.} \hfill
+          \begin{enumerate}
+              \item Yield-to-Maturity
+
+                    Since YTM is a non-linear equation, I used \texttt{scipy.fsolve} root finding method to find the root of the calculated PV after discounting coupon cash flows and the actual PV from the bond tracker website. The underlying root finding algorithm of \texttt{scipy.fsolve} is Powell's Hybrid Method \cite{wiki:Powell_dog_leg_method}.
+                    \begin{figure}[H]
+                        \centering
+                        \begin{minipage}{0.45\textwidth}
+                            \centering
+                            \includegraphics[width=\textwidth]{ytm.png}
+                            \caption{Yield-to-Maturity Curves}
+                        \end{minipage}
+                        \begin{minipage}{0.45\textwidth}
+                            \centering
+                            \includegraphics[width=\textwidth]{spot_rates.png}
+                            \caption{Spot Rate Curves}
+                        \end{minipage}
+                    \end{figure}
+
+              \item Spot Rate
+
+                    I carefully chose bonds so that when computing the spot rates, I did not need to linearly interpolate between known spot rates to discount coupons. I chose bonds that paid coupons in March and September.
+                    \begin{algorithm}[H]
+                        \caption{Calculate Spot Rates}
+                        \begin{algorithmic}[1]
+                            \State Initialize \texttt{spot\_rates\_table} as an empty table
+                            \State Set \texttt{face\_value} to 100
+
+                            \For{each \texttt{data\_collection\_date} in \texttt{data\_collection\_dates}}
+                            \For{each \texttt{bond} in \texttt{bonds\_by\_maturity}}
+                            \State \texttt{semi\_annual\_coupon} = \texttt{(bond.annual\_coupon\_rate * face\_value) / 2}
+                            \State \texttt{PV} = \texttt{bond\_table[bond, data\_collection\_date]}
+
+                            \If{bond has multiple coupons}
+                            \For{each \texttt{coupon} in \texttt{bond.coupons}}
+                            \State \texttt{spot\_rate} = \texttt{spot\_rates\_table[coupon.date, data\_collection\_date]}
+                            \State \texttt{PV} -= \texttt{semi\_annual\_coupon * exp(-spot\_rate * coupon.time\_to\_coupon)}
+                            \EndFor
+                            \EndIf
+
+                            \State \texttt{r} = \texttt{-log(PV / (face\_value + semi\_annual\_coupon)) / bond.time\_to\_maturity}
+                            \State \texttt{spot\_rates\_table[bond.maturity, data\_collection\_date]} = \texttt{r}
+                            \EndFor
+                            \EndFor
+                        \end{algorithmic}
+                    \end{algorithm}
+              \item Forward Rate
+                    \begin{figure}[H]
+                        \centering
+                        \includegraphics[width=0.45\textwidth]{forward_rates.png}
+                        \caption{Forward Rate Curves}
+                    \end{figure}
+                    \begin{algorithm}[H]
+                        \caption{Calculate Forward Rates}
+                        \begin{algorithmic}[1]
+                            \State Initialize \texttt{forward\_rates\_table} as an empty table
+
+                            \For{each \texttt{data\_collection\_date} in \texttt{data\_collection\_dates}}
+                            \State \texttt{year\_1\_bond} = \texttt{get\_bond(data\_collection\_date, 1)}
+                            \State \texttt{year\_1\_bond\_spot\_rate} = \texttt{spot\_rates\_table[year\_1\_bond, data\_collection\_date]}
+                            \State \texttt{year\_1\_bond\_time\_to\_maturity} = \texttt{year\_1\_bond.maturity - data\_collection\_date}
+
+                            \For{each \texttt{future\_bond} in \texttt{2\_to\_5\_years\_maturity\_bonds}}
+                            \State \texttt{bond\_spot\_rate} = \texttt{spot\_rates\_table[future\_bond, data\_collection\_date]}
+                            \State \texttt{bond\_time\_to\_maturity} = \texttt{future\_bond.maturity - data\_collection\_date}
+
+                            \State \texttt{forward\_rates\_table[future\_bond, data\_collection\_date]} =
+                            \Statex \hspace{1cm} \texttt{(bond\_spot\_rate * (bond\_time\_to\_maturity + year\_1\_bond\_time\_to\_maturity) - year\_1\_bond\_spot\_rate) / year\_1\_bond\_time\_to\_maturity}
+                            \EndFor
+                            \EndFor
+                        \end{algorithmic}
+                    \end{algorithm}
+          \end{enumerate}
+
+
+    \item Covariance Matrices
+          \begin{figure}[H]
+              \centering
+              \begin{minipage}{0.45\textwidth}
+                  \centering
+                  \includegraphics[width=\textwidth]{ytm_cov.png}
+                  \caption{Yield-to-Maturity Log Returns Covariance Matrix}
+              \end{minipage}
+              \hfill
+              \begin{minipage}{0.45\textwidth}
+                  \centering
+                  \includegraphics[width=\textwidth]{forward_rates_cov.png}
+                  \caption{Forward Rates Log Returns Covariance Matrix}
+              \end{minipage}
+          \end{figure}
+    \item Eigenvalues \& Eigenvectors of Covariance Matrices
+          \begin{figure}[H]
+              \centering
+              \begin{minipage}{0.45\textwidth}
+                  \centering
+                  \includegraphics[width=\textwidth]{ytm_eigen.png}
+                  \caption{Yield-to-Maturity Log Returns Covariance Matrix Eigenvalues \& Eigenvectors}
+              \end{minipage}
+              \hfill
+              \begin{minipage}{0.45\textwidth}
+                  \centering
+                  \includegraphics[width=\textwidth]{forward_rates_eigen.png}
+                  \caption{Forward Rates Log Returns Covariance Matrix Eigenvalues \& Eigenvectors}
+              \end{minipage}
+          \end{figure}
+
+          The first eigenvector in both covariance matrices have an equal value in each dimension implying that the primary driver of day-to-day returns affects all instruments (bonds with different maturities) equally (likely indicative of a market index). Based on the magnitudes of the first eigenvalue, we can get the explained variance of the first eigenvector which is 69.6\% and 94.0\% for YTM and Forward Rates respectively implying that the "index" eigenvector accounts for the majority of the variance.
+\end{enumerate}
+
+\newpage
+\section*{References and GitHub Link to Code}
+\printbibliography
+
+\end{document}
